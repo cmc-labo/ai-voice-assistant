@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Voice Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
 
@@ -44,7 +45,7 @@
     z-index: 0;
   }
 
-  /* ── Header (top-left) ── */
+  /* ── Header ── */
   .header-bar {
     position: relative;
     z-index: 1;
@@ -96,7 +97,7 @@
     box-shadow: 0 2px 8px rgba(107,88,240,0.12);
   }
 
-  /* ── Avatar / Lip-sync ── */
+  /* ── Avatar ── */
   .avatar-section {
     position: relative;
     z-index: 1;
@@ -141,7 +142,7 @@
     overflow: hidden;
     border: 2px solid var(--accent);
     box-shadow: 0 0 0 1px var(--border), 0 4px 24px var(--glow);
-    background: #1a1a2e;
+    background: #12121a;
     transition: box-shadow 0.3s ease;
     flex-shrink: 0;
   }
@@ -150,9 +151,10 @@
     box-shadow: 0 0 0 1px var(--border), 0 4px 40px var(--glow), 0 0 60px var(--pulse);
   }
 
-  .avatar-frame svg {
-    width: 100%;
-    height: 100%;
+  /* Three.js canvas fills the frame */
+  .avatar-frame canvas {
+    width: 100% !important;
+    height: 100% !important;
     display: block;
   }
 
@@ -223,11 +225,7 @@
     letter-spacing: 0.04em;
   }
 
-  .message-label svg {
-    width: 11px;
-    height: 11px;
-    flex-shrink: 0;
-  }
+  .message-label svg { width: 11px; height: 11px; flex-shrink: 0; }
 
   .message-text {
     font-size: 14px;
@@ -331,9 +329,7 @@
     animation: mic-throb 1s ease-in-out infinite;
   }
 
-  @keyframes mic-throb {
-    50% { transform: scale(1.06); }
-  }
+  @keyframes mic-throb { 50% { transform: scale(1.06); } }
 
   .mic-btn svg { width: 24px; height: 24px; color: #fff; }
 
@@ -356,7 +352,7 @@
 </head>
 <body>
 
-  <!-- Header (top-left) -->
+  <!-- Header -->
   <div class="header-bar">
     <div class="header-info">
       <h1>AI Voice</h1>
@@ -372,42 +368,13 @@
     </button>
   </div>
 
-  <!-- Lip-sync face -->
+  <!-- Lip-sync face (Three.js) -->
   <div class="avatar-section">
     <div class="avatar-area" id="avatarArea">
       <div class="avatar-ring"></div>
       <div class="avatar-ring"></div>
       <div class="avatar-ring"></div>
-      <div class="avatar-frame">
-        <svg viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="faceGrad" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="#2a2a3e"/>
-              <stop offset="100%" stop-color="#12121a"/>
-            </radialGradient>
-          </defs>
-          <circle cx="70" cy="70" r="70" fill="url(#faceGrad)"/>
-          <circle cx="70" cy="60" r="45" fill="none" stroke="rgba(124,106,255,0.08)" stroke-width="1"/>
-          <g id="eyes">
-            <ellipse cx="50" cy="60" rx="8" ry="9" fill="#1a1a2e"/>
-            <ellipse cx="50" cy="60" rx="5" ry="6" fill="#7c6aff" opacity="0.9"/>
-            <ellipse cx="50" cy="60" rx="2.5" ry="3" fill="#fff" opacity="0.15"/>
-            <circle cx="52" cy="58" r="1.5" fill="rgba(255,255,255,0.6)"/>
-            <ellipse cx="90" cy="60" rx="8" ry="9" fill="#1a1a2e"/>
-            <ellipse cx="90" cy="60" rx="5" ry="6" fill="#7c6aff" opacity="0.9"/>
-            <ellipse cx="90" cy="60" rx="2.5" ry="3" fill="#fff" opacity="0.15"/>
-            <circle cx="92" cy="58" r="1.5" fill="rgba(255,255,255,0.6)"/>
-          </g>
-          <path d="M70 70 Q67 78 64 80 Q70 83 76 80 Q73 78 70 70Z" fill="rgba(124,106,255,0.12)"/>
-          <g id="mouth">
-            <path d="M56 94 Q70 104 84 94" stroke="#7c6aff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
-          </g>
-          <line x1="15" y1="70" x2="30" y2="70" stroke="rgba(124,106,255,0.2)" stroke-width="1"/>
-          <circle cx="15" cy="70" r="2" fill="rgba(124,106,255,0.3)"/>
-          <line x1="125" y1="70" x2="110" y2="70" stroke="rgba(124,106,255,0.2)" stroke-width="1"/>
-          <circle cx="125" cy="70" r="2" fill="rgba(124,106,255,0.3)"/>
-        </svg>
-      </div>
+      <div class="avatar-frame" id="avatarFrame"></div>
     </div>
   </div>
 
@@ -427,7 +394,7 @@
         <span id="statusText">待機中</span>
       </div>
       <button class="mic-btn" id="micBtn" title="話す">
-        <svg id="micIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="9" y="2" width="6" height="11" rx="3"/>
           <path d="M5 10a7 7 0 0 0 14 0"/>
           <line x1="12" y1="19" x2="12" y2="22"/>
@@ -439,22 +406,303 @@
   </div>
 
 <script>
-(function() {
+/* ================================================================
+   Three.js Lip-Sync Face
+   ================================================================ */
+class LipSyncFace {
+  constructor(container) {
+    const size = container.offsetWidth || 100;
+
+    // 2x canvas for retina
+    this._fc = document.createElement('canvas');
+    this._fc.width = this._fc.height = size * 2;
+    this._ctx = this._fc.getContext('2d');
+
+    // Three.js scene
+    this._scene  = new THREE.Scene();
+    this._camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+    this._camera.position.z = 5;
+    this._renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this._renderer.setSize(size, size);
+    container.appendChild(this._renderer.domElement);
+
+    this._tex = new THREE.CanvasTexture(this._fc);
+    this._scene.add(new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.MeshBasicMaterial({ map: this._tex, transparent: true })
+    ));
+
+    // ── State (すべて秒単位で統一) ──
+    this._t0     = performance.now() / 1000;  // 起動時刻（秒）
+    this._lastT  = this._t0;                  // ★ 秒で初期化（ミリ秒にしないこと）
+
+    this._mouthOpen    = 0;    this._mouthOpenTgt = 0;
+    this._mouthWide    = 0.5;  this._mouthWideTgt = 0.5;
+
+    // まばたき
+    this._blinkOpen    = 1;
+    this._blinkTimer   = 0;                       // 次のまばたきまでのカウンタ
+    this._nextBlink    = 1.0 + Math.random() * 2; // 初回は 1〜3 秒後
+    this._blinkPhase   = -1;                      // -1 = 待機, 0〜 = アニメ中
+
+    // リップシンク
+    this._speaking     = false;
+    this._visemes      = [];
+    this._speakT0      = 0;
+
+    this._loop();
+  }
+
+  /* ── Public ─────────────────────────────────────────── */
+
+  startSpeaking(text) {
+    this._speaking  = true;
+    this._speakT0   = performance.now() / 1000;
+    this._visemes   = this._buildVisemes(text);
+  }
+
+  stopSpeaking() {
+    this._speaking       = false;
+    this._visemes        = [];
+    this._mouthOpenTgt   = 0;
+    this._mouthWideTgt   = 0.5;
+  }
+
+  /* ── Viseme タイムライン生成 ───────────────────────── */
+
+  _buildVisemes(text) {
+    const MS = 130; // 1モーラあたり約 130ms
+    // あ行→A, い行→I, う行→U, え行→E, お行→O, 閉じ→M
+    const MAP = {
+      'あ':[0.80,0.65],'か':[0.80,0.65],'さ':[0.80,0.65],'た':[0.80,0.65],
+      'な':[0.80,0.65],'は':[0.80,0.65],'ま':[0.80,0.65],'ら':[0.80,0.65],
+      'わ':[0.80,0.65],'が':[0.80,0.65],'ざ':[0.80,0.65],'だ':[0.80,0.65],
+      'ば':[0.80,0.65],'ぱ':[0.80,0.65],'や':[0.80,0.65],
+      'い':[0.35,0.95],'き':[0.35,0.95],'し':[0.35,0.95],'ち':[0.35,0.95],
+      'に':[0.35,0.95],'ひ':[0.35,0.95],'み':[0.35,0.95],'り':[0.35,0.95],
+      'ぎ':[0.35,0.95],'じ':[0.35,0.95],'び':[0.35,0.95],'ぴ':[0.35,0.95],
+      'う':[0.40,0.22],'く':[0.40,0.22],'す':[0.40,0.22],'つ':[0.40,0.22],
+      'ぬ':[0.40,0.22],'ふ':[0.40,0.22],'む':[0.40,0.22],'ゆ':[0.40,0.22],
+      'る':[0.40,0.22],'ぐ':[0.40,0.22],'ず':[0.40,0.22],'ぶ':[0.40,0.22],
+      'ぷ':[0.40,0.22],'っ':[0.08,0.40],
+      'え':[0.55,0.82],'け':[0.55,0.82],'せ':[0.55,0.82],'て':[0.55,0.82],
+      'ね':[0.55,0.82],'へ':[0.55,0.82],'め':[0.55,0.82],'れ':[0.55,0.82],
+      'げ':[0.55,0.82],'ぜ':[0.55,0.82],'で':[0.55,0.82],'べ':[0.55,0.82],
+      'お':[0.65,0.30],'こ':[0.65,0.30],'そ':[0.65,0.30],'と':[0.65,0.30],
+      'の':[0.65,0.30],'ほ':[0.65,0.30],'も':[0.65,0.30],'よ':[0.65,0.30],
+      'ろ':[0.65,0.30],'を':[0.65,0.30],'ご':[0.65,0.30],'ぞ':[0.65,0.30],
+      'ど':[0.65,0.30],'ぼ':[0.65,0.30],'ぽ':[0.65,0.30],
+      'ん':[0.02,0.50],'。':[0.00,0.50],'、':[0.00,0.50],
+      '！':[0.00,0.50],'？':[0.00,0.50],'…':[0.00,0.50],
+    };
+
+    const list = [];
+    let t = 0.04;
+    for (const ch of text) {
+      const v = MAP[ch];
+      if (v) {
+        list.push({ o: v[0], w: v[1], at: t });
+        if (v[0] > 0.15) {
+          list.push({ o: v[0] * 0.2, w: v[1], at: t + MS * 0.65 / 1000 });
+        }
+      } else if (ch.trim()) {
+        list.push({ o: 0.3 + Math.random() * 0.35, w: 0.45 + Math.random() * 0.25, at: t });
+        list.push({ o: 0.02, w: 0.5, at: t + MS * 0.6 / 1000 });
+      }
+      t += MS / 1000;
+    }
+    return list;
+  }
+
+  /* ── メインループ ───────────────────────────────────── */
+
+  _loop() {
+    requestAnimationFrame(() => this._loop());
+
+    const now = performance.now() / 1000;        // ★ 秒
+    const dt  = Math.min(now - this._lastT, 0.05);
+    this._lastT = now;
+    const t   = now - this._t0;                   // 起動からの経過秒
+
+    /* まばたき */
+    if (this._blinkPhase < 0) {
+      // 待機中：タイマーを進める
+      this._blinkTimer += dt;
+      if (this._blinkTimer >= this._nextBlink) {
+        this._blinkPhase  = 0;    // アニメ開始
+        this._blinkTimer  = 0;
+        this._nextBlink   = 2.0 + Math.random() * 3.0;
+      }
+    } else {
+      // アニメ中（閉→開で 0.14s）
+      this._blinkPhase += dt / 0.14;
+      if (this._blinkPhase < 0.5) {
+        this._blinkOpen = 1 - this._blinkPhase * 2;       // 閉じる
+      } else if (this._blinkPhase < 1.0) {
+        this._blinkOpen = (this._blinkPhase - 0.5) * 2;   // 開く
+      } else {
+        this._blinkOpen  = 1;
+        this._blinkPhase = -1;   // 待機に戻る
+      }
+    }
+
+    /* リップシンク */
+    if (this._speaking) {
+      const elapsed = now - this._speakT0;
+      while (this._visemes.length && this._visemes[0].at <= elapsed) {
+        const v = this._visemes.shift();
+        this._mouthOpenTgt = v.o;
+        this._mouthWideTgt = v.w;
+      }
+      // キュー終端に達したら微動作でリカバリ
+      if (!this._visemes.length && Math.random() < 0.04) {
+        this._mouthOpenTgt = 0.1 + Math.random() * 0.3;
+        this._mouthWideTgt = 0.4 + Math.random() * 0.4;
+      }
+    } else {
+      this._mouthOpenTgt = 0;
+      this._mouthWideTgt = 0.5;
+    }
+
+    /* 補間（lerp） */
+    const spd = Math.min(dt * 14, 1);
+    this._mouthOpen += (this._mouthOpenTgt - this._mouthOpen) * spd;
+    this._mouthWide += (this._mouthWideTgt - this._mouthWide) * spd;
+
+    this._draw(t);
+    this._tex.needsUpdate = true;
+    this._renderer.render(this._scene, this._camera);
+  }
+
+  /* ── 顔の描画 ───────────────────────────────────────── */
+
+  _draw(t) {
+    const c = this._ctx, W = this._fc.width, H = this._fc.height;
+    const cx = W / 2, cy = H / 2, R = W / 2;
+    c.clearRect(0, 0, W, H);
+
+    // 頭
+    const g = c.createRadialGradient(cx, cy * 0.8, 0, cx, cy, R);
+    g.addColorStop(0, '#2d2b4e'); g.addColorStop(1, '#0e0e1c');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
+
+    // 内側リング
+    c.strokeStyle = 'rgba(124,106,255,0.1)'; c.lineWidth = 2;
+    c.beginPath(); c.arc(cx, cy * 0.88, R * 0.62, 0, Math.PI * 2); c.stroke();
+
+    // 回路ライン
+    c.strokeStyle = 'rgba(124,106,255,0.22)'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(0, cy); c.lineTo(R * 0.25, cy); c.stroke();
+    c.beginPath(); c.moveTo(W, cy); c.lineTo(W - R * 0.25, cy); c.stroke();
+    c.fillStyle = 'rgba(124,106,255,0.45)';
+    c.beginPath(); c.arc(4, cy, 4, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(W - 4, cy, 4, 0, Math.PI * 2); c.fill();
+
+    // アイドル浮動
+    const fy = Math.sin(t * 0.9) * 2.5;
+
+    // 目
+    const eyeY = cy * 0.78 + fy, exo = R * 0.28;
+    this._drawEye(c, cx - exo, eyeY, R * 0.115, this._blinkOpen);
+    this._drawEye(c, cx + exo, eyeY, R * 0.115, this._blinkOpen);
+
+    // 鼻のヒント
+    c.fillStyle = 'rgba(124,106,255,0.07)';
+    c.beginPath();
+    c.moveTo(cx, cy + fy);
+    c.lineTo(cx - R * 0.07, cy + R * 0.12 + fy);
+    c.lineTo(cx + R * 0.07, cy + R * 0.12 + fy);
+    c.fill();
+
+    // 口
+    this._drawMouth(c, cx, cy + R * 0.30 + fy, R * 0.30,
+      this._mouthOpen, this._mouthWide);
+  }
+
+  _drawEye(c, x, y, r, blinkOpen) {
+    const ry = Math.max(r * blinkOpen, 1.5);
+
+    c.fillStyle = '#151528';
+    c.beginPath(); c.ellipse(x, y, r * 1.4, Math.max(ry * 1.5, 2), 0, 0, Math.PI * 2); c.fill();
+
+    const ig = c.createRadialGradient(x, y, 0, x, y, r);
+    ig.addColorStop(0, '#b0a0ff'); ig.addColorStop(1, '#5a48e0');
+    c.fillStyle = ig;
+    c.beginPath(); c.ellipse(x, y, r, ry, 0, 0, Math.PI * 2); c.fill();
+
+    c.fillStyle = 'rgba(8,6,24,0.55)';
+    c.beginPath(); c.ellipse(x, y, r * 0.45, Math.max(ry * 0.55, 1), 0, 0, Math.PI * 2); c.fill();
+
+    c.fillStyle = 'rgba(255,255,255,0.75)';
+    c.beginPath(); c.arc(x + r * 0.32, y - ry * 0.38, r * 0.22, 0, Math.PI * 2); c.fill();
+
+    c.fillStyle = 'rgba(255,255,255,0.3)';
+    c.beginPath(); c.arc(x - r * 0.18, y + ry * 0.2, r * 0.1, 0, Math.PI * 2); c.fill();
+  }
+
+  _drawMouth(c, x, y, hw, open, wide) {
+    const w   = hw * (0.55 + wide * 0.9);
+    const gap = open * hw * 0.75;
+
+    // 口の内側
+    if (open > 0.04) {
+      const ig = c.createRadialGradient(x, y + gap * 0.4, 0, x, y + gap * 0.4, w);
+      ig.addColorStop(0, '#200035'); ig.addColorStop(1, '#080010');
+      c.fillStyle = ig;
+      c.beginPath(); c.ellipse(x, y + gap * 0.45, w * 0.82, gap * 0.88 + 1, 0, 0, Math.PI * 2); c.fill();
+
+      // 歯のヒント
+      if (open > 0.35) {
+        c.fillStyle = 'rgba(240,235,255,0.5)';
+        c.beginPath(); c.ellipse(x, y + 3, w * 0.5, gap * 0.2, 0, 0, Math.PI * 2); c.fill();
+      }
+    }
+
+    // 上唇（キューピッドボウ）
+    c.strokeStyle = 'rgba(160,140,255,0.9)'; c.lineWidth = 3; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x - w, y);
+    c.quadraticCurveTo(x - w * 0.45, y - hw * 0.12, x - w * 0.1, y - hw * 0.07);
+    c.quadraticCurveTo(x, y - hw * 0.16, x + w * 0.1, y - hw * 0.07);
+    c.quadraticCurveTo(x + w * 0.45, y - hw * 0.12, x + w, y);
+    c.stroke();
+
+    // 下唇
+    c.strokeStyle = 'rgba(148,128,255,0.78)'; c.lineWidth = 3.5;
+    c.beginPath();
+    c.moveTo(x - w * 0.88, y + gap);
+    c.quadraticCurveTo(x, y + gap + hw * 0.14 + open * hw * 0.1, x + w * 0.88, y + gap);
+    c.stroke();
+
+    // 口角
+    c.fillStyle = 'rgba(120,100,220,0.4)';
+    c.beginPath(); c.arc(x - w, y + gap * 0.5, 3, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(x + w, y + gap * 0.5, 3, 0, Math.PI * 2); c.fill();
+  }
+}
+
+/* ================================================================
+   Main App
+   ================================================================ */
+(function () {
+  /* ── Init Three.js avatar ── */
+  const face = new LipSyncFace(document.getElementById('avatarFrame'));
+
   /* ── State ── */
   let isRecording = false;
   let recognition = null;
-  let synth = window.speechSynthesis;
+  const synth = window.speechSynthesis;
   let conversationHistory = [];
 
   /* ── DOM ── */
-  const micBtn      = document.getElementById('micBtn');
-  const statusDot   = document.getElementById('statusDot');
-  const statusText  = document.getElementById('statusText');
-  const avatarArea  = document.getElementById('avatarArea');
-  const chatArea    = document.getElementById('chatArea');
-  const errorMsg    = document.getElementById('errorMsg');
-  const clearBtn    = document.getElementById('clearBtn');
-  const mouthPath   = document.querySelector('#mouth path');
+  const micBtn     = document.getElementById('micBtn');
+  const statusDot  = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const avatarArea = document.getElementById('avatarArea');
+  const chatArea   = document.getElementById('chatArea');
+  const errorMsg   = document.getElementById('errorMsg');
+  const clearBtn   = document.getElementById('clearBtn');
 
   /* ── Speech Recognition ── */
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -465,7 +713,7 @@
 
   /* ── Helpers ── */
   function setStatus(state, text) {
-    statusDot.className = 'status-dot ' + (state || '');
+    statusDot.className  = 'status-dot ' + (state || '');
     statusText.textContent = text;
   }
 
@@ -476,34 +724,25 @@
   }
 
   function addMessage(text, who) {
-    const placeholder = document.getElementById('placeholder');
-    if (placeholder) placeholder.remove();
+    const ph = document.getElementById('placeholder');
+    if (ph) ph.remove();
 
-    const card = document.createElement('div');
+    const card  = document.createElement('div');
     card.className = 'message-card ' + who;
 
     const label = document.createElement('div');
     label.className = 'message-label';
-
-    if (who === 'ai') {
-      label.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-        </svg>
-        AI`;
-    } else {
-      label.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-        あなた`;
-    }
+    label.innerHTML = who === 'ai'
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+           <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+         </svg> AI`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+         </svg> あなた`;
 
     const body = document.createElement('div');
-    body.className = 'message-text';
+    body.className   = 'message-text';
     body.textContent = text;
 
     card.appendChild(label);
@@ -512,46 +751,25 @@
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 
-  function setSpeakingUI(on) {
+  function setSpeakingUI(on, text = '') {
     if (on) {
       avatarArea.classList.add('speaking');
       setStatus('speaking', 'AI が話しています');
-      animateMouth(true);
+      face.startSpeaking(text);
     } else {
       avatarArea.classList.remove('speaking');
-      animateMouth(false);
-    }
-  }
-
-  /* ── Mouth animation ── */
-  let mouthTimer = null;
-  function animateMouth(on) {
-    if (!mouthPath) return;
-    clearInterval(mouthTimer);
-    if (on) {
-      const shapes = [
-        "M56 94 Q70 108 84 94",
-        "M56 94 Q70 104 84 94",
-        "M56 94 Q70 100 84 94",
-      ];
-      let i = 0;
-      mouthTimer = setInterval(() => {
-        mouthPath.setAttribute('d', shapes[i % shapes.length]);
-        i++;
-      }, 180);
-    } else {
-      mouthPath.setAttribute('d', "M56 94 Q70 104 84 94");
+      face.stopSpeaking();
     }
   }
 
   /* ── Claude API ── */
   async function askClaude(userText) {
-    conversationHistory.push({ role: "user", content: userText });
+    conversationHistory.push({ role: 'user', content: userText });
 
     const res = await fetch('/api/chat', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: conversationHistory })
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ messages: conversationHistory }),
     });
 
     if (!res.ok) {
@@ -559,9 +777,9 @@
       throw new Error(err.error?.message || `HTTP ${res.status}`);
     }
 
-    const data = await res.json();
+    const data  = await res.json();
     const reply = data.content.find(b => b.type === 'text')?.text || '（応答なし）';
-    conversationHistory.push({ role: "assistant", content: reply });
+    conversationHistory.push({ role: 'assistant', content: reply });
     return reply;
   }
 
@@ -569,16 +787,15 @@
   function speak(text) {
     return new Promise(resolve => {
       synth.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = 'ja-JP';
-      utt.rate = 1.0;
-      utt.pitch = 1.1;
+      const utt   = new SpeechSynthesisUtterance(text);
+      utt.lang    = 'ja-JP';
+      utt.rate    = 1.0;
+      utt.pitch   = 1.1;
 
-      const voices = synth.getVoices();
-      const jaVoice = voices.find(v => v.lang.startsWith('ja'));
+      const jaVoice = synth.getVoices().find(v => v.lang.startsWith('ja'));
       if (jaVoice) utt.voice = jaVoice;
 
-      utt.onstart = () => setSpeakingUI(true);
+      utt.onstart = () => setSpeakingUI(true, text);
       utt.onend   = () => { setSpeakingUI(false); resolve(); };
       utt.onerror = () => { setSpeakingUI(false); resolve(); };
       synth.speak(utt);
@@ -592,8 +809,8 @@
     setSpeakingUI(false);
 
     recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';
-    recognition.interimResults = false;
+    recognition.lang            = 'ja-JP';
+    recognition.interimResults  = false;
     recognition.maxAlternatives = 1;
 
     isRecording = true;
@@ -624,10 +841,7 @@
       if (e.error !== 'aborted') showError('音声認識エラー: ' + e.error);
     };
 
-    recognition.onend = () => {
-      if (isRecording) stopRecordingUI();
-    };
-
+    recognition.onend = () => { if (isRecording) stopRecordingUI(); };
     recognition.start();
   }
 
@@ -635,7 +849,7 @@
     isRecording = false;
     micBtn.classList.remove('recording');
     setStatus('', '待機中');
-    if (recognition) { try { recognition.stop(); } catch(_) {} }
+    if (recognition) { try { recognition.stop(); } catch (_) {} }
   }
 
   /* ── Clear ── */
@@ -652,9 +866,7 @@
     else startRecording();
   });
 
-  if (synth.onvoiceschanged !== undefined) {
-    synth.onvoiceschanged = () => synth.getVoices();
-  }
+  if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = () => synth.getVoices();
   synth.getVoices();
 })();
 </script>
