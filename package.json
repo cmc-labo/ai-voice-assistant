@@ -1,0 +1,12 @@
+{
+  "name": "ai-voice-chat",
+  "version": "1.0.0",
+  "description": "AI Voice Chat - 音声でClaudeと会話するWebアプリ (MVP)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
