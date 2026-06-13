@@ -1,34 +1,28 @@
-// server.js
-// シンプルなプロキシサーバー：フロントエンドからの音声チャットリクエストを
-// Anthropic API に中継します。APIキーはサーバー側のみで保持します。
-//
-// 使い方:
-//   1. npm install express
-//   2. export ANTHROPIC_API_KEY="sk-ant-xxxxx"   (Mac/Linux)
-//      または  set ANTHROPIC_API_KEY=sk-ant-xxxxx (Windows)
-//   3. node server.js
-//   4. ブラウザで http://localhost:3000 を開く
+require('dotenv').config();
 
 const express = require('express');
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT  = process.env.PORT  || 3000;
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 
 if (!API_KEY) {
-  console.warn('⚠️  警告: 環境変数 ANTHROPIC_API_KEY が設定されていません。');
-  console.warn('   例: export ANTHROPIC_API_KEY="sk-ant-xxxxx"');
+  console.warn('⚠️  Warning: ANTHROPIC_API_KEY is not set.');
+  console.warn('   e.g. export ANTHROPIC_API_KEY="sk-ant-xxxxx"');
 }
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Claude API へのプロキシエンドポイント
+// Proxy endpoint for Claude API
 app.post('/api/chat', async (req, res) => {
   try {
     if (!API_KEY) {
-      return res.status(500).json({ error: 'ANTHROPIC_API_KEY が設定されていません。' });
+      return res.status(500).json({ error: 'ANTHROPIC_API_KEY is not set.' });
     }
 
     const { messages } = req.body;
@@ -62,6 +56,21 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ サーバー起動: http://localhost:${PORT}`);
-});
+// Start HTTPS if certificates exist, otherwise fall back to HTTP
+const certPath = path.join(__dirname, 'certs', 'cert.pem');
+const keyPath  = path.join(__dirname, 'certs', 'key.pem');
+
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  const credentials = {
+    cert: fs.readFileSync(certPath),
+    key:  fs.readFileSync(keyPath),
+  };
+  https.createServer(credentials, app).listen(PORT, () => {
+    console.log(`✅ Server running (HTTPS): https://localhost:${PORT}`);
+  });
+} else {
+  http.createServer(app).listen(PORT, () => {
+    console.log(`✅ Server running (HTTP): http://localhost:${PORT}`);
+    console.log('   Tip: add certs/cert.pem and certs/key.pem for HTTPS support.');
+  });
+}

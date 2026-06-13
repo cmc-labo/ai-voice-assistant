@@ -11,6 +11,7 @@ A minimal web app that lets you speak to Claude and hear its response — powere
 - **Text-to-speech** playback with Japanese voice selection
 - **Lip-sync avatar** that animates while Claude speaks
 - **Conversation history** maintained across turns within a session
+- **HTTPS** support via self-signed certificate (required for mic access on non-localhost)
 
 ## Project Structure
 
@@ -18,6 +19,11 @@ A minimal web app that lets you speak to Claude and hear its response — powere
 ai-voice-chat/
 ├── server.js          # Express proxy server — forwards requests to Anthropic API
 ├── package.json
+├── .env               # Your API key (never committed — see .env.example)
+├── .env.example       # Template for environment variables
+├── certs/             # Self-signed SSL certificates (never committed)
+│   ├── cert.pem
+│   └── key.pem
 └── public/
     └── index.html     # Frontend UI (single-file, no build step)
 ```
@@ -38,37 +44,58 @@ npm install
 
 ### 2. Set your Anthropic API key
 
-**macOS / Linux:**
+Copy `.env.example` to `.env` and fill in your key:
+
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxx"
+cp .env.example .env
 ```
 
-**Windows (Command Prompt):**
-```cmd
-set ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx
+Then edit `.env`:
+
+```
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx
+PORT=3000
 ```
 
-**Windows (PowerShell):**
-```powershell
-$env:ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxx"
+### 3. (Optional) Generate a self-signed HTTPS certificate
+
+HTTPS is required when accessing from any address other than `localhost` (e.g. a VM's private IP).
+
+```bash
+mkdir -p certs
+openssl req -x509 -newkey rsa:2048 \
+  -keyout certs/key.pem -out certs/cert.pem \
+  -days 825 -nodes \
+  -subj "/CN=192.168.33.10" \
+  -addext "subjectAltName=IP:192.168.33.10,IP:127.0.0.1,DNS:localhost"
 ```
 
-### 3. Start the server
+Replace `192.168.33.10` with your machine's IP address.  
+If `certs/` is absent the server falls back to plain HTTP automatically.
+
+### 4. Start the server
 
 ```bash
 npm start
 ```
 
-You should see:
+With certificates present you will see:
+
 ```
-✅ Server running: http://localhost:3000
+✅ Server running (HTTPS): https://localhost:3000
 ```
 
-### 4. Open in your browser
+### 5. Open in your browser
 
-Navigate to `http://localhost:3000`, tap the mic button, and start talking.
+| Access from | URL |
+|---|---|
+| Same machine | `https://localhost:3000` |
+| Another device / VM host | `https://<your-ip>:3000` |
 
-> **Note:** The Web Speech API only works on `localhost` or over HTTPS. Chrome is strongly recommended.
+On first visit your browser will warn about the self-signed certificate.  
+Click **Advanced → Proceed** to continue. This is a one-time step.
+
+> **Note:** The Web Speech API (microphone) only works on `localhost` or over HTTPS. Chrome is strongly recommended.
 
 ## Why a proxy server?
 
@@ -77,14 +104,14 @@ Calling `api.anthropic.com` directly from the browser runs into two problems:
 1. **CORS** — the API does not allow cross-origin requests from browsers.
 2. **Key exposure** — embedding your API key in frontend code makes it visible to anyone who opens DevTools.
 
-The Express server in `server.js` keeps the API key in the environment and acts as a thin relay between the frontend and the Anthropic API.
+The Express server in `server.js` keeps the API key on the server side and acts as a thin relay between the frontend and the Anthropic API.
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | ✅ | Your Anthropic API key |
-| `PORT` | No | HTTP port (default: `3000`) |
+| `PORT` | No | Port to listen on (default: `3000`) |
 
 ## Roadmap
 
@@ -92,7 +119,7 @@ The Express server in `server.js` keeps the API key in the environment and acts 
 - [ ] Voice selector UI for TTS
 - [ ] Persistent conversation history (localStorage)
 - [ ] Live2D / Three.js lip-sync integration
-- [ ] HTTPS / deploy guide (Railway, Render, etc.)
+- [ ] Deploy guide (Railway, Render, etc.)
 
 ## License
 
