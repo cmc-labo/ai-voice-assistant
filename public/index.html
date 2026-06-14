@@ -341,6 +341,53 @@
     text-align: center;
   }
 
+  /* ── Voice selector ── */
+  .voice-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .voice-row label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .voice-select {
+    flex: 1;
+    min-width: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--surface)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239090b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      no-repeat right 10px center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 5px 28px 5px 10px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 4px rgba(107,88,240,0.05);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .voice-select:focus {
+    border-color: rgba(107,88,240,0.45);
+    box-shadow: 0 0 0 2px rgba(107,88,240,0.12);
+  }
+
+  .voice-select option { background: #f5f4ff; color: #1e1b3a; }
+  .voice-select optgroup { font-style: normal; color: var(--text-dim); }
+
   @media (max-width: 480px) {
     .avatar-frame { width: 86px; height: 86px; }
     .avatar-ring:nth-child(1) { width: 102px; height: 102px; }
@@ -401,6 +448,12 @@
           <line x1="8"  y1="22" x2="16" y2="22"/>
         </svg>
       </button>
+    </div>
+    <div class="voice-row">
+      <label for="voiceSelect">音声</label>
+      <select id="voiceSelect" class="voice-select">
+        <option value="">読み込み中…</option>
+      </select>
     </div>
     <div class="bottom-hint">ボタンを押して話しかけてください</div>
   </div>
@@ -696,13 +749,62 @@ class LipSyncFace {
   let conversationHistory = [];
 
   /* ── DOM ── */
-  const micBtn     = document.getElementById('micBtn');
-  const statusDot  = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
-  const avatarArea = document.getElementById('avatarArea');
-  const chatArea   = document.getElementById('chatArea');
-  const errorMsg   = document.getElementById('errorMsg');
-  const clearBtn   = document.getElementById('clearBtn');
+  const micBtn      = document.getElementById('micBtn');
+  const statusDot   = document.getElementById('statusDot');
+  const statusText  = document.getElementById('statusText');
+  const avatarArea  = document.getElementById('avatarArea');
+  const chatArea    = document.getElementById('chatArea');
+  const errorMsg    = document.getElementById('errorMsg');
+  const clearBtn    = document.getElementById('clearBtn');
+  const voiceSelect = document.getElementById('voiceSelect');
+
+  /* ── Voice management ── */
+  let selectedVoice = null;
+
+  function populateVoices() {
+    const all  = synth.getVoices();
+    const ja   = all.filter(v => v.lang.startsWith('ja'));
+    const rest = all.filter(v => !v.lang.startsWith('ja'));
+
+    if (all.length === 0) return; // not ready yet
+
+    voiceSelect.innerHTML = '';
+
+    if (ja.length > 0) {
+      const grpJa = document.createElement('optgroup');
+      grpJa.label = '日本語';
+      ja.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value       = 'ja:' + i;
+        opt.textContent = v.name;
+        grpJa.appendChild(opt);
+      });
+      voiceSelect.appendChild(grpJa);
+    }
+
+    if (rest.length > 0) {
+      const grpOther = document.createElement('optgroup');
+      grpOther.label = 'その他';
+      rest.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value       = 'other:' + i;
+        opt.textContent = v.name + ' (' + v.lang + ')';
+        grpOther.appendChild(opt);
+      });
+      voiceSelect.appendChild(grpOther);
+    }
+
+    // デフォルト: 最初の日本語音声
+    selectedVoice = ja[0] || all[0] || null;
+  }
+
+  voiceSelect.addEventListener('change', () => {
+    const [group, idx] = voiceSelect.value.split(':');
+    const all  = synth.getVoices();
+    const ja   = all.filter(v => v.lang.startsWith('ja'));
+    const rest = all.filter(v => !v.lang.startsWith('ja'));
+    selectedVoice = group === 'ja' ? ja[+idx] : rest[+idx];
+  });
 
   /* ── Speech Recognition ── */
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -792,8 +894,7 @@ class LipSyncFace {
       utt.rate    = 1.0;
       utt.pitch   = 1.1;
 
-      const jaVoice = synth.getVoices().find(v => v.lang.startsWith('ja'));
-      if (jaVoice) utt.voice = jaVoice;
+      if (selectedVoice) utt.voice = selectedVoice;
 
       utt.onstart = () => setSpeakingUI(true, text);
       utt.onend   = () => { setSpeakingUI(false); resolve(); };
@@ -866,8 +967,10 @@ class LipSyncFace {
     else startRecording();
   });
 
-  if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = () => synth.getVoices();
-  synth.getVoices();
+  if (synth.onvoiceschanged !== undefined) {
+    synth.onvoiceschanged = populateVoices;
+  }
+  populateVoices();
 })();
 </script>
 </body>
