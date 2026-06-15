@@ -743,6 +743,7 @@ class LipSyncFace {
   const face = new LipSyncFace(document.getElementById('avatarFrame'));
 
   /* ── State ── */
+  const STORAGE_KEY = 'ai-voice-chat-history';
   let isRecording = false;
   let recognition = null;
   const synth = window.speechSynthesis;
@@ -825,7 +826,27 @@ class LipSyncFace {
     setTimeout(() => errorMsg.classList.remove('visible'), 5000);
   }
 
-  function addMessage(text, who) {
+  /* ── History persistence ── */
+  function saveHistory() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversationHistory));
+    } catch (_) {}
+  }
+
+  function restoreHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const history = JSON.parse(raw);
+      if (!Array.isArray(history) || history.length === 0) return;
+      conversationHistory = history;
+      history.forEach(({ role, content }) => {
+        addMessage(content, role === 'assistant' ? 'ai' : 'user', false);
+      });
+    } catch (_) {}
+  }
+
+  function addMessage(text, who, persist = true) {
     const ph = document.getElementById('placeholder');
     if (ph) ph.remove();
 
@@ -882,6 +903,7 @@ class LipSyncFace {
     const data  = await res.json();
     const reply = data.content.find(b => b.type === 'text')?.text || '（応答なし）';
     conversationHistory.push({ role: 'assistant', content: reply });
+    saveHistory();
     return reply;
   }
 
@@ -956,6 +978,7 @@ class LipSyncFace {
   /* ── Clear ── */
   clearBtn.addEventListener('click', () => {
     conversationHistory = [];
+    localStorage.removeItem(STORAGE_KEY);
     chatArea.innerHTML = '<div class="placeholder-text" id="placeholder">マイクボタンを押して<br>話しかけてください</div>';
     synth.cancel();
     setSpeakingUI(false);
@@ -971,6 +994,7 @@ class LipSyncFace {
     synth.onvoiceschanged = populateVoices;
   }
   populateVoices();
+  restoreHistory();
 })();
 </script>
 </body>

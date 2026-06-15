@@ -35,7 +35,7 @@ app.post('/api/chat', async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system: 'あなたは親切で知的なAIアシスタントです。ユーザーと日本語で会話します。返答は簡潔に、2〜3文程度にまとめてください。',
         messages
