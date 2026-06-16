@@ -27,7 +27,7 @@ app.post('/api/chat', async (req, res) => {
 
     const { messages } = req.body;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,21 +38,37 @@ app.post('/api/chat', async (req, res) => {
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system: 'あなたは親切で知的なAIアシスタントです。ユーザーと日本語で会話します。返答は簡潔に、2〜3文程度にまとめてください。',
-        messages
+        messages,
+        stream: true
       })
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!upstream.ok) {
+      const data = await upstream.json().catch(() => ({}));
       console.error('Anthropic API error:', data);
-      return res.status(response.status).json(data);
+      return res.status(upstream.status).json(data);
     }
 
-    res.json(data);
+    // Relay the Server-Sent Events stream straight through to the client
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const reader = upstream.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    res.end();
   } catch (err) {
     console.error('Server error:', err);
-    res.status(500).json({ error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.end();
+    }
   }
 });
 

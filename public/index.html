@@ -841,12 +841,20 @@ class LipSyncFace {
       if (!Array.isArray(history) || history.length === 0) return;
       conversationHistory = history;
       history.forEach(({ role, content }) => {
-        addMessage(content, role === 'assistant' ? 'ai' : 'user', false);
+        addMessage(content, role === 'assistant' ? 'ai' : 'user');
       });
     } catch (_) {}
   }
 
-  function addMessage(text, who, persist = true) {
+  const AI_LABEL_HTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+       <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+     </svg> AI`;
+  const USER_LABEL_HTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+     </svg> あなた`;
+
+  function createMessageCard(who) {
     const ph = document.getElementById('placeholder');
     if (ph) ph.remove();
 
@@ -855,38 +863,83 @@ class LipSyncFace {
 
     const label = document.createElement('div');
     label.className = 'message-label';
-    label.innerHTML = who === 'ai'
-      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-           <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-         </svg> AI`
-      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-         </svg> あなた`;
+    label.innerHTML = who === 'ai' ? AI_LABEL_HTML : USER_LABEL_HTML;
 
     const body = document.createElement('div');
-    body.className   = 'message-text';
-    body.textContent = text;
+    body.className = 'message-text';
 
     card.appendChild(label);
     card.appendChild(body);
     chatArea.appendChild(card);
     chatArea.scrollTop = chatArea.scrollHeight;
+
+    return body;
   }
 
-  function setSpeakingUI(on, text = '') {
-    if (on) {
-      avatarArea.classList.add('speaking');
-      setStatus('speaking', 'AI が話しています');
-      face.startSpeaking(text);
-    } else {
+  function addMessage(text, who) {
+    createMessageCard(who).textContent = text;
+  }
+
+  /* ── Speech queue: speaks completed sentences as they arrive, keeps
+     lip-sync and the "speaking" UI state alive across the whole run ── */
+  class SpeechQueue {
+    constructor() {
+      this.pending = 0;
+      this._waiters = [];
+    }
+
+    enqueue(text) {
+      if (!text || !text.trim()) return;
+      this.pending++;
+
+      const utt   = new SpeechSynthesisUtterance(text);
+      utt.lang    = 'ja-JP';
+      utt.rate    = 1.0;
+      utt.pitch   = 1.1;
+      if (selectedVoice) utt.voice = selectedVoice;
+
+      utt.onstart = () => {
+        avatarArea.classList.add('speaking');
+        setStatus('speaking', 'AI が話しています');
+        face.startSpeaking(text);
+      };
+      utt.onend   = () => this._onUttDone();
+      utt.onerror = () => this._onUttDone();
+
+      synth.speak(utt);
+    }
+
+    _onUttDone() {
+      this.pending = Math.max(0, this.pending - 1);
+      if (this.pending === 0) {
+        avatarArea.classList.remove('speaking');
+        face.stopSpeaking();
+        const waiters = this._waiters;
+        this._waiters = [];
+        waiters.forEach(r => r());
+      }
+    }
+
+    whenDone() {
+      if (this.pending === 0) return Promise.resolve();
+      return new Promise(resolve => this._waiters.push(resolve));
+    }
+
+    cancelAll() {
+      synth.cancel();
+      this.pending = 0;
       avatarArea.classList.remove('speaking');
       face.stopSpeaking();
+      const waiters = this._waiters;
+      this._waiters = [];
+      waiters.forEach(r => r());
     }
   }
 
-  /* ── Claude API ── */
-  async function askClaude(userText) {
+  const speechQueue = new SpeechQueue();
+
+  /* ── Claude API (streaming via SSE) ── */
+  async function askClaudeStream(userText, onDelta) {
     conversationHistory.push({ role: 'user', content: userText });
 
     const res = await fetch('/api/chat', {
@@ -900,36 +953,48 @@ class LipSyncFace {
       throw new Error(err.error?.message || `HTTP ${res.status}`);
     }
 
-    const data  = await res.json();
-    const reply = data.content.find(b => b.type === 'text')?.text || '（応答なし）';
-    conversationHistory.push({ role: 'assistant', content: reply });
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+    let fullText  = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let sep;
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const rawEvent = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+
+        let dataStr = '';
+        for (const line of rawEvent.split('\n')) {
+          if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+        }
+        if (!dataStr) continue;
+
+        let data;
+        try { data = JSON.parse(dataStr); } catch (_) { continue; }
+
+        if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+          fullText += data.delta.text;
+          onDelta(data.delta.text);
+        } else if (data.type === 'error') {
+          throw new Error(data.error?.message || 'ストリーミング中にエラーが発生しました');
+        }
+      }
+    }
+
+    conversationHistory.push({ role: 'assistant', content: fullText });
     saveHistory();
-    return reply;
-  }
-
-  /* ── TTS ── */
-  function speak(text) {
-    return new Promise(resolve => {
-      synth.cancel();
-      const utt   = new SpeechSynthesisUtterance(text);
-      utt.lang    = 'ja-JP';
-      utt.rate    = 1.0;
-      utt.pitch   = 1.1;
-
-      if (selectedVoice) utt.voice = selectedVoice;
-
-      utt.onstart = () => setSpeakingUI(true, text);
-      utt.onend   = () => { setSpeakingUI(false); resolve(); };
-      utt.onerror = () => { setSpeakingUI(false); resolve(); };
-      synth.speak(utt);
-    });
+    return fullText;
   }
 
   /* ── Recording ── */
   function startRecording() {
     if (!SpeechRecognition) return;
-    synth.cancel();
-    setSpeakingUI(false);
+    speechQueue.cancelAll();
 
     recognition = new SpeechRecognition();
     recognition.lang            = 'ja-JP';
@@ -948,10 +1013,24 @@ class LipSyncFace {
       addMessage(transcript, 'user');
       setStatus('thinking', '考えています…');
 
+      const aiBody = createMessageCard('ai');
+      let speakBuffer = '';
+
       try {
-        const reply = await askClaude(transcript);
-        addMessage(reply, 'ai');
-        await speak(reply);
+        await askClaudeStream(transcript, (chunk) => {
+          aiBody.textContent += chunk;
+          chatArea.scrollTop = chatArea.scrollHeight;
+
+          speakBuffer += chunk;
+          let idx;
+          while ((idx = speakBuffer.search(/[。！？\n]/)) !== -1) {
+            speechQueue.enqueue(speakBuffer.slice(0, idx + 1));
+            speakBuffer = speakBuffer.slice(idx + 1);
+          }
+        });
+
+        if (speakBuffer.trim()) speechQueue.enqueue(speakBuffer);
+        await speechQueue.whenDone();
       } catch (err) {
         showError('エラー: ' + err.message);
       }
@@ -980,8 +1059,7 @@ class LipSyncFace {
     conversationHistory = [];
     localStorage.removeItem(STORAGE_KEY);
     chatArea.innerHTML = '<div class="placeholder-text" id="placeholder">マイクボタンを押して<br>話しかけてください</div>';
-    synth.cancel();
-    setSpeakingUI(false);
+    speechQueue.cancelAll();
     stopRecordingUI();
   });
 
