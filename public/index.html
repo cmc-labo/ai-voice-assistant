@@ -142,7 +142,7 @@
     overflow: hidden;
     border: 2px solid var(--accent);
     box-shadow: 0 0 0 1px var(--border), 0 4px 24px var(--glow);
-    background: #12121a;
+    background: #f0eeff;
     transition: box-shadow 0.3s ease;
     flex-shrink: 0;
   }
@@ -634,104 +634,203 @@ class LipSyncFace {
     const cx = W / 2, cy = H / 2, R = W / 2;
     c.clearRect(0, 0, W, H);
 
-    // 頭
-    const g = c.createRadialGradient(cx, cy * 0.8, 0, cx, cy, R);
-    g.addColorStop(0, '#2d2b4e'); g.addColorStop(1, '#0e0e1c');
-    c.fillStyle = g;
-    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
-
-    // 内側リング
-    c.strokeStyle = 'rgba(124,106,255,0.1)'; c.lineWidth = 2;
-    c.beginPath(); c.arc(cx, cy * 0.88, R * 0.62, 0, Math.PI * 2); c.stroke();
-
-    // 回路ライン
-    c.strokeStyle = 'rgba(124,106,255,0.22)'; c.lineWidth = 1.5;
-    c.beginPath(); c.moveTo(0, cy); c.lineTo(R * 0.25, cy); c.stroke();
-    c.beginPath(); c.moveTo(W, cy); c.lineTo(W - R * 0.25, cy); c.stroke();
-    c.fillStyle = 'rgba(124,106,255,0.45)';
-    c.beginPath(); c.arc(4, cy, 4, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.arc(W - 4, cy, 4, 0, Math.PI * 2); c.fill();
-
     // アイドル浮動
     const fy = Math.sin(t * 0.9) * 2.5;
+    const y  = cy + fy * 0.3; // 顔の基準Y（浮動込み）
+
+    // 背景（フレーム全体を柔らかい色で）
+    const bg = c.createRadialGradient(cx, cy, 0, cx, cy, R);
+    bg.addColorStop(0, '#f5f2ff'); bg.addColorStop(1, '#e6e1ff');
+    c.fillStyle = bg;
+    c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
+
+    // 後ろ髪（顔の輪郭に沿って流れる長い髪）
+    this._drawHairBack(c, cx, y, R);
+
+    // 顔（輪郭をすっきりさせた卵型）
+    this._drawFaceShape(c, cx, y, R);
+
+    // ほっぺ（チーク）
+    const cheekY = y + R * 0.10;
+    c.fillStyle = 'rgba(240,90,160,0.26)';
+    c.beginPath(); c.ellipse(cx - R * 0.32, cheekY, R * 0.12, R * 0.075, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(cx + R * 0.32, cheekY, R * 0.12, R * 0.075, 0, 0, Math.PI * 2); c.fill();
+
+    const eyeY = y - R * 0.10, exo = R * 0.24;
+
+    // 眉
+    this._drawEyebrow(c, cx - exo, eyeY - R * 0.25, R * 0.12);
+    this._drawEyebrow(c, cx + exo, eyeY - R * 0.25, R * 0.12);
 
     // 目
-    const eyeY = cy * 0.78 + fy, exo = R * 0.28;
-    this._drawEye(c, cx - exo, eyeY, R * 0.115, this._blinkOpen);
-    this._drawEye(c, cx + exo, eyeY, R * 0.115, this._blinkOpen);
-
-    // 鼻のヒント
-    c.fillStyle = 'rgba(124,106,255,0.07)';
-    c.beginPath();
-    c.moveTo(cx, cy + fy);
-    c.lineTo(cx - R * 0.07, cy + R * 0.12 + fy);
-    c.lineTo(cx + R * 0.07, cy + R * 0.12 + fy);
-    c.fill();
+    this._drawEye(c, cx - exo, eyeY, R * 0.150, this._blinkOpen);
+    this._drawEye(c, cx + exo, eyeY, R * 0.150, this._blinkOpen);
 
     // 口
-    this._drawMouth(c, cx, cy + R * 0.30 + fy, R * 0.30,
+    this._drawMouth(c, cx, y + R * 0.40, R * 0.21,
       this._mouthOpen, this._mouthWide);
+
+    // 前髪（額の上、顔より手前）
+    this._drawHairFront(c, cx, y, R);
+  }
+
+  _drawFaceShape(c, cx, y, R) {
+    const skin = c.createRadialGradient(cx, y - R * 0.15, R * 0.1, cx, y, R * 0.9);
+    skin.addColorStop(0, '#ffeee0'); skin.addColorStop(1, '#fdddc4');
+    c.fillStyle = skin;
+
+    const topY    = y - R * 0.80;
+    const templeY = y - R * 0.35;
+    const cheekY  = y + R * 0.05;
+    const jawY    = y + R * 0.55;
+    const chinY   = y + R * 0.90;
+
+    const wTemple = R * 0.54;
+    const wCheek  = R * 0.58;
+    const wJaw    = R * 0.40;
+
+    c.beginPath();
+    c.moveTo(cx - wTemple, templeY);
+    c.quadraticCurveTo(cx - wTemple * 0.9, topY + R * 0.05, cx, topY);
+    c.quadraticCurveTo(cx + wTemple * 0.9, topY + R * 0.05, cx + wTemple, templeY);
+    c.quadraticCurveTo(cx + wCheek, cheekY, cx + wJaw, jawY);
+    c.quadraticCurveTo(cx + wJaw * 0.5, chinY - R * 0.04, cx, chinY);
+    c.quadraticCurveTo(cx - wJaw * 0.5, chinY - R * 0.04, cx - wJaw, jawY);
+    c.quadraticCurveTo(cx - wCheek, cheekY, cx - wTemple, templeY);
+    c.closePath();
+    c.fill();
+  }
+
+  _drawHairBack(c, cx, y, R) {
+    const g = c.createLinearGradient(cx, y - R, cx, y + R);
+    g.addColorStop(0, '#2a2730'); g.addColorStop(1, '#0c0b10');
+    c.fillStyle = g;
+
+    const templeY = y - R * 0.35;
+    const cheekY  = y + R * 0.05;
+    const tipY    = y + R * 1.05;
+
+    [-1, 1].forEach(side => {
+      const xTemple = cx + side * R * 0.50;
+      const xOuter  = cx + side * R * 0.66;
+      const xInner  = cx + side * R * 0.32;
+      const xTip    = cx + side * R * 0.16;
+
+      c.beginPath();
+      c.moveTo(xTemple, templeY);
+      c.quadraticCurveTo(xOuter, cheekY, cx + side * R * 0.60, y + R * 0.55);
+      c.quadraticCurveTo(cx + side * R * 0.40, y + R * 0.95, xTip, tipY);
+      c.quadraticCurveTo(cx + side * R * 0.28, y + R * 0.55, xInner, cheekY);
+      c.quadraticCurveTo(cx + side * R * 0.38, templeY + R * 0.05, xTemple, templeY);
+      c.closePath();
+      c.fill();
+    });
+  }
+
+  _drawHairFront(c, cx, y, R) {
+    const topY      = y - R * 0.85;
+    const hairlineY = y - R * 0.30;
+
+    const g = c.createLinearGradient(cx, topY, cx, hairlineY);
+    g.addColorStop(0, '#34313c'); g.addColorStop(1, '#13121a');
+    c.fillStyle = g;
+
+    c.beginPath();
+    c.moveTo(cx - R * 0.52, hairlineY + R * 0.04);
+    c.quadraticCurveTo(cx - R * 0.60, topY + R * 0.08, cx - R * 0.24, topY);
+    c.quadraticCurveTo(cx - R * 0.08, topY + R * 0.06, cx, topY + R * 0.18);
+    c.quadraticCurveTo(cx + R * 0.08, topY + R * 0.06, cx + R * 0.24, topY);
+    c.quadraticCurveTo(cx + R * 0.60, topY + R * 0.08, cx + R * 0.52, hairlineY + R * 0.04);
+    c.quadraticCurveTo(cx + R * 0.34, hairlineY - R * 0.05, cx + R * 0.16, hairlineY + R * 0.02);
+    c.quadraticCurveTo(cx + R * 0.06, hairlineY - R * 0.07, cx, hairlineY + R * 0.05);
+    c.quadraticCurveTo(cx - R * 0.06, hairlineY - R * 0.07, cx - R * 0.16, hairlineY + R * 0.02);
+    c.quadraticCurveTo(cx - R * 0.34, hairlineY - R * 0.05, cx - R * 0.52, hairlineY + R * 0.04);
+    c.closePath();
+    c.fill();
+
+    // 髪のツヤ（艶ハイライト）
+    c.strokeStyle = 'rgba(170,165,200,0.35)';
+    c.lineWidth = 2.2;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(cx - R * 0.30, topY + R * 0.30);
+    c.quadraticCurveTo(cx - R * 0.10, topY + R * 0.14, cx + R * 0.10, topY + R * 0.26);
+    c.stroke();
+  }
+
+  _drawEyebrow(c, x, y, w) {
+    c.strokeStyle = 'rgba(40,35,45,0.75)';
+    c.lineWidth = 3;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(x - w, y + 2);
+    c.quadraticCurveTo(x, y - w * 0.5, x + w, y + 2);
+    c.stroke();
   }
 
   _drawEye(c, x, y, r, blinkOpen) {
     const ry = Math.max(r * blinkOpen, 1.5);
 
-    c.fillStyle = '#151528';
-    c.beginPath(); c.ellipse(x, y, r * 1.4, Math.max(ry * 1.5, 2), 0, 0, Math.PI * 2); c.fill();
+    // 白目
+    c.fillStyle = '#ffffff';
+    c.beginPath(); c.ellipse(x, y, r * 1.05, ry * 1.05, 0, 0, Math.PI * 2); c.fill();
 
-    const ig = c.createRadialGradient(x, y, 0, x, y, r);
-    ig.addColorStop(0, '#b0a0ff'); ig.addColorStop(1, '#5a48e0');
+    // 虹彩
+    const ig = c.createRadialGradient(x, y - ry * 0.1, 0, x, y, r);
+    ig.addColorStop(0, '#7a5a42'); ig.addColorStop(1, '#33211a');
     c.fillStyle = ig;
-    c.beginPath(); c.ellipse(x, y, r, ry, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(x, y, r * 0.85, ry * 0.95, 0, 0, Math.PI * 2); c.fill();
 
-    c.fillStyle = 'rgba(8,6,24,0.55)';
-    c.beginPath(); c.ellipse(x, y, r * 0.45, Math.max(ry * 0.55, 1), 0, 0, Math.PI * 2); c.fill();
+    // 瞳孔
+    c.fillStyle = '#1a1410';
+    c.beginPath(); c.ellipse(x, y + ry * 0.05, r * 0.42, Math.max(ry * 0.5, 1), 0, 0, Math.PI * 2); c.fill();
 
-    c.fillStyle = 'rgba(255,255,255,0.75)';
-    c.beginPath(); c.arc(x + r * 0.32, y - ry * 0.38, r * 0.22, 0, Math.PI * 2); c.fill();
+    // ハイライト
+    c.fillStyle = 'rgba(255,255,255,0.95)';
+    c.beginPath(); c.arc(x + r * 0.32, y - ry * 0.42, r * 0.22, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.beginPath(); c.arc(x - r * 0.30, y + ry * 0.30, r * 0.12, 0, Math.PI * 2); c.fill();
 
-    c.fillStyle = 'rgba(255,255,255,0.3)';
-    c.beginPath(); c.arc(x - r * 0.18, y + ry * 0.2, r * 0.1, 0, Math.PI * 2); c.fill();
+    // 上まつげライン
+    c.strokeStyle = 'rgba(30,25,30,0.8)';
+    c.lineWidth = Math.max(r * 0.18, 1.5);
+    c.lineCap = 'round';
+    c.beginPath();
+    c.ellipse(x, y, r * 1.05, ry * 1.05, 0, Math.PI * 1.08, Math.PI * 1.92);
+    c.stroke();
   }
 
   _drawMouth(c, x, y, hw, open, wide) {
     const w   = hw * (0.55 + wide * 0.9);
     const gap = open * hw * 0.75;
 
-    // 口の内側
-    if (open > 0.04) {
+    if (open > 0.05) {
+      // 開いた口
       const ig = c.createRadialGradient(x, y + gap * 0.4, 0, x, y + gap * 0.4, w);
-      ig.addColorStop(0, '#200035'); ig.addColorStop(1, '#080010');
+      ig.addColorStop(0, '#c2435f'); ig.addColorStop(1, '#7a2236');
       c.fillStyle = ig;
-      c.beginPath(); c.ellipse(x, y + gap * 0.45, w * 0.82, gap * 0.88 + 1, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(x, y + gap * 0.45, w * 0.78, gap * 0.85 + 1, 0, 0, Math.PI * 2); c.fill();
 
-      // 歯のヒント
-      if (open > 0.35) {
-        c.fillStyle = 'rgba(240,235,255,0.5)';
-        c.beginPath(); c.ellipse(x, y + 3, w * 0.5, gap * 0.2, 0, 0, Math.PI * 2); c.fill();
+      if (open > 0.3) {
+        c.fillStyle = 'rgba(255,255,255,0.85)';
+        c.beginPath(); c.ellipse(x, y + 2, w * 0.5, gap * 0.18, 0, 0, Math.PI * 2); c.fill();
       }
+
+      c.strokeStyle = '#e2708f';
+      c.lineWidth = 3;
+      c.beginPath();
+      c.ellipse(x, y + gap * 0.45, w * 0.8, gap * 0.88 + 1, 0, 0, Math.PI * 2);
+      c.stroke();
+    } else {
+      // 閉じた口（微笑み）
+      c.strokeStyle = '#dd7891';
+      c.lineWidth = 4;
+      c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(x - w * 0.85, y);
+      c.quadraticCurveTo(x, y + hw * 0.22, x + w * 0.85, y);
+      c.stroke();
     }
-
-    // 上唇（キューピッドボウ）
-    c.strokeStyle = 'rgba(160,140,255,0.9)'; c.lineWidth = 3; c.lineCap = 'round';
-    c.beginPath();
-    c.moveTo(x - w, y);
-    c.quadraticCurveTo(x - w * 0.45, y - hw * 0.12, x - w * 0.1, y - hw * 0.07);
-    c.quadraticCurveTo(x, y - hw * 0.16, x + w * 0.1, y - hw * 0.07);
-    c.quadraticCurveTo(x + w * 0.45, y - hw * 0.12, x + w, y);
-    c.stroke();
-
-    // 下唇
-    c.strokeStyle = 'rgba(148,128,255,0.78)'; c.lineWidth = 3.5;
-    c.beginPath();
-    c.moveTo(x - w * 0.88, y + gap);
-    c.quadraticCurveTo(x, y + gap + hw * 0.14 + open * hw * 0.1, x + w * 0.88, y + gap);
-    c.stroke();
-
-    // 口角
-    c.fillStyle = 'rgba(120,100,220,0.4)';
-    c.beginPath(); c.arc(x - w, y + gap * 0.5, 3, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.arc(x + w, y + gap * 0.5, 3, 0, Math.PI * 2); c.fill();
   }
 }
 
