@@ -333,6 +333,49 @@
 
   .mic-btn svg { width: 24px; height: 24px; color: #fff; }
 
+  /* ── Text input ── */
+  .text-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .text-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .text-input:focus { border-color: var(--accent); }
+  .text-input::placeholder { color: var(--text-dim); }
+  .text-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s, opacity 0.15s;
+    outline: none;
+  }
+  .send-btn svg { width: 16px; height: 16px; color: #fff; }
+  .send-btn:active { transform: scale(0.92); }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
   .bottom-hint {
     font-family: 'Space Mono', monospace;
     font-size: 10px;
@@ -429,7 +472,7 @@
 
   <!-- Chat area -->
   <div class="chat-area" id="chatArea">
-    <div class="placeholder-text" id="placeholder">マイクボタンを押して<br>話しかけてください</div>
+    <div class="placeholder-text" id="placeholder">マイクボタンを押すか<br>メッセージを入力してください</div>
   </div>
 
   <!-- Bottom section -->
@@ -449,13 +492,22 @@
         </svg>
       </button>
     </div>
+    <div class="text-row">
+      <input type="text" id="textInput" class="text-input" placeholder="メッセージを入力…" autocomplete="off" />
+      <button class="send-btn" id="sendBtn" type="button" title="送信">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
     <div class="voice-row">
       <label for="voiceSelect">音声</label>
       <select id="voiceSelect" class="voice-select">
         <option value="">読み込み中…</option>
       </select>
     </div>
-    <div class="bottom-hint">ボタンを押して話しかけてください</div>
+    <div class="bottom-hint">話しかけるか、メッセージを入力してください</div>
   </div>
 
 <script>
@@ -703,7 +755,7 @@ class LipSyncFace {
 
   _drawHairBack(c, cx, y, R) {
     const g = c.createLinearGradient(cx, y - R, cx, y + R);
-    g.addColorStop(0, '#2a2730'); g.addColorStop(1, '#0c0b10');
+    g.addColorStop(0, '#7a5639'); g.addColorStop(1, '#3f2a17');
     c.fillStyle = g;
 
     const templeY = y - R * 0.35;
@@ -732,15 +784,14 @@ class LipSyncFace {
     const hairlineY = y - R * 0.30;
 
     const g = c.createLinearGradient(cx, topY, cx, hairlineY);
-    g.addColorStop(0, '#34313c'); g.addColorStop(1, '#13121a');
+    g.addColorStop(0, '#8a6444'); g.addColorStop(1, '#4d3320');
     c.fillStyle = g;
 
     c.beginPath();
     c.moveTo(cx - R * 0.52, hairlineY + R * 0.04);
-    c.quadraticCurveTo(cx - R * 0.60, topY + R * 0.08, cx - R * 0.24, topY);
-    c.quadraticCurveTo(cx - R * 0.08, topY + R * 0.06, cx, topY + R * 0.18);
-    c.quadraticCurveTo(cx + R * 0.08, topY + R * 0.06, cx + R * 0.24, topY);
-    c.quadraticCurveTo(cx + R * 0.60, topY + R * 0.08, cx + R * 0.52, hairlineY + R * 0.04);
+    c.quadraticCurveTo(cx - R * 0.62, topY + R * 0.15, cx - R * 0.30, topY);
+    c.quadraticCurveTo(cx, topY - R * 0.04, cx + R * 0.30, topY);
+    c.quadraticCurveTo(cx + R * 0.62, topY + R * 0.15, cx + R * 0.52, hairlineY + R * 0.04);
     c.quadraticCurveTo(cx + R * 0.34, hairlineY - R * 0.05, cx + R * 0.16, hairlineY + R * 0.02);
     c.quadraticCurveTo(cx + R * 0.06, hairlineY - R * 0.07, cx, hairlineY + R * 0.05);
     c.quadraticCurveTo(cx - R * 0.06, hairlineY - R * 0.07, cx - R * 0.16, hairlineY + R * 0.02);
@@ -749,17 +800,17 @@ class LipSyncFace {
     c.fill();
 
     // 髪のツヤ（艶ハイライト）
-    c.strokeStyle = 'rgba(170,165,200,0.35)';
+    c.strokeStyle = 'rgba(255,215,170,0.40)';
     c.lineWidth = 2.2;
     c.lineCap = 'round';
     c.beginPath();
-    c.moveTo(cx - R * 0.30, topY + R * 0.30);
-    c.quadraticCurveTo(cx - R * 0.10, topY + R * 0.14, cx + R * 0.10, topY + R * 0.26);
+    c.moveTo(cx - R * 0.30, topY + R * 0.28);
+    c.quadraticCurveTo(cx - R * 0.10, topY + R * 0.12, cx + R * 0.10, topY + R * 0.24);
     c.stroke();
   }
 
   _drawEyebrow(c, x, y, w) {
-    c.strokeStyle = 'rgba(40,35,45,0.75)';
+    c.strokeStyle = 'rgba(90,60,38,0.75)';
     c.lineWidth = 3;
     c.lineCap = 'round';
     c.beginPath();
@@ -845,11 +896,14 @@ class LipSyncFace {
   const STORAGE_KEY = 'ai-voice-chat-history';
   let isRecording = false;
   let recognition = null;
+  let busy = false;
   const synth = window.speechSynthesis;
   let conversationHistory = [];
 
   /* ── DOM ── */
   const micBtn      = document.getElementById('micBtn');
+  const textInput   = document.getElementById('textInput');
+  const sendBtn     = document.getElementById('sendBtn');
   const statusDot   = document.getElementById('statusDot');
   const statusText  = document.getElementById('statusText');
   const avatarArea  = document.getElementById('avatarArea');
@@ -1090,6 +1144,61 @@ class LipSyncFace {
     return fullText;
   }
 
+  /* ── Send a user message (shared by voice + text input) ── */
+  async function sendUserMessage(transcript) {
+    if (!transcript || busy) return;
+    busy = true;
+    textInput.disabled = true;
+    sendBtn.disabled = true;
+
+    addMessage(transcript, 'user');
+    setStatus('thinking', '考えています…');
+
+    const aiBody = createMessageCard('ai');
+    let speakBuffer = '';
+
+    try {
+      await askClaudeStream(transcript, (chunk) => {
+        aiBody.textContent += chunk;
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        speakBuffer += chunk;
+        let idx;
+        while ((idx = speakBuffer.search(/[。！？\n]/)) !== -1) {
+          speechQueue.enqueue(speakBuffer.slice(0, idx + 1));
+          speakBuffer = speakBuffer.slice(idx + 1);
+        }
+      });
+
+      if (speakBuffer.trim()) speechQueue.enqueue(speakBuffer);
+      await speechQueue.whenDone();
+    } catch (err) {
+      showError('エラー: ' + err.message);
+    }
+
+    setStatus('', '待機中');
+    busy = false;
+    textInput.disabled = false;
+    sendBtn.disabled = false;
+  }
+
+  /* ── Text input ── */
+  function submitTextInput() {
+    const text = textInput.value.trim();
+    if (!text || busy) return;
+    textInput.value = '';
+    speechQueue.cancelAll();
+    sendUserMessage(text);
+  }
+
+  sendBtn.addEventListener('click', submitTextInput);
+  textInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      submitTextInput();
+    }
+  });
+
   /* ── Recording ── */
   function startRecording() {
     if (!SpeechRecognition) return;
@@ -1104,37 +1213,11 @@ class LipSyncFace {
     micBtn.classList.add('recording');
     setStatus('listening', '聞いています');
 
-    recognition.onresult = async (e) => {
+    recognition.onresult = (e) => {
       const transcript = e.results[0][0].transcript.trim();
       stopRecordingUI();
       if (!transcript) return;
-
-      addMessage(transcript, 'user');
-      setStatus('thinking', '考えています…');
-
-      const aiBody = createMessageCard('ai');
-      let speakBuffer = '';
-
-      try {
-        await askClaudeStream(transcript, (chunk) => {
-          aiBody.textContent += chunk;
-          chatArea.scrollTop = chatArea.scrollHeight;
-
-          speakBuffer += chunk;
-          let idx;
-          while ((idx = speakBuffer.search(/[。！？\n]/)) !== -1) {
-            speechQueue.enqueue(speakBuffer.slice(0, idx + 1));
-            speakBuffer = speakBuffer.slice(idx + 1);
-          }
-        });
-
-        if (speakBuffer.trim()) speechQueue.enqueue(speakBuffer);
-        await speechQueue.whenDone();
-      } catch (err) {
-        showError('エラー: ' + err.message);
-      }
-
-      setStatus('', '待機中');
+      sendUserMessage(transcript);
     };
 
     recognition.onerror = (e) => {
@@ -1157,7 +1240,7 @@ class LipSyncFace {
   clearBtn.addEventListener('click', () => {
     conversationHistory = [];
     localStorage.removeItem(STORAGE_KEY);
-    chatArea.innerHTML = '<div class="placeholder-text" id="placeholder">マイクボタンを押して<br>話しかけてください</div>';
+    chatArea.innerHTML = '<div class="placeholder-text" id="placeholder">マイクボタンを押すか<br>メッセージを入力してください</div>';
     speechQueue.cancelAll();
     stopRecordingUI();
   });
