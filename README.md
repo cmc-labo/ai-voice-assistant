@@ -7,10 +7,11 @@ A minimal web app that lets you speak to Claude and hear its response — powere
 ## Features
 
 - **Voice input** via Web Speech API (browser-native, no external STT service)
-- **Claude API** integration through a local proxy server (keeps your API key server-side)
+- **Text input** as an alternative to voice, with the same chat flow
+- **Claude API** integration through a local proxy server (keeps your API key server-side), with streaming responses
 - **Text-to-speech** playback with Japanese voice selection
-- **Lip-sync avatar** that animates while Claude speaks
-- **Conversation history** maintained across turns within a session
+- **Lip-sync avatar** (Three.js) that animates while Claude speaks
+- **Conversation history** persisted across reloads via localStorage
 - **HTTPS** support via self-signed certificate (required for mic access on non-localhost)
 
 ## Project Structure
@@ -115,10 +116,11 @@ The Express server in `server.js` keeps the API key on the server side and acts 
 
 ## Roadmap
 
-- [ ] Streaming responses (chunk-by-chunk display and speech)
-- [ ] Voice selector UI for TTS
-- [ ] Persistent conversation history (localStorage)
-- [ ] Live2D / Three.js lip-sync integration
+- [x] Streaming responses (chunk-by-chunk display and speech)
+- [x] Voice selector UI for TTS
+- [x] Persistent conversation history (localStorage)
+- [x] Live2D / Three.js lip-sync integration
+- [x] Text input alongside voice input
 - [ ] Deploy guide (Railway, Render, etc.)
 
 ## License
