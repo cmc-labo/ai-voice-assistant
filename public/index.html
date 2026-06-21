@@ -483,7 +483,7 @@
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">待機中</span>
       </div>
-      <button class="mic-btn" id="micBtn" title="話す">
+      <button class="mic-btn" id="micBtn" title="話す" aria-label="マイクで話す" aria-pressed="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="9" y="2" width="6" height="11" rx="3"/>
           <path d="M5 10a7 7 0 0 0 14 0"/>
@@ -494,7 +494,7 @@
     </div>
     <div class="text-row">
       <input type="text" id="textInput" class="text-input" placeholder="メッセージを入力…" autocomplete="off" />
-      <button class="send-btn" id="sendBtn" type="button" title="送信">
+      <button class="send-btn" id="sendBtn" type="button" title="送信" aria-label="送信">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"/>
           <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -1211,6 +1211,7 @@ class LipSyncFace {
 
     isRecording = true;
     micBtn.classList.add('recording');
+    micBtn.setAttribute('aria-pressed', 'true');
     setStatus('listening', '聞いています');
 
     recognition.onresult = (e) => {
@@ -1232,6 +1233,7 @@ class LipSyncFace {
   function stopRecordingUI() {
     isRecording = false;
     micBtn.classList.remove('recording');
+    micBtn.setAttribute('aria-pressed', 'false');
     setStatus('', '待機中');
     if (recognition) { try { recognition.stop(); } catch (_) {} }
   }
