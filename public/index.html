@@ -1212,6 +1212,8 @@ class LipSyncFace {
     isRecording = true;
     micBtn.classList.add('recording');
     micBtn.setAttribute('aria-pressed', 'true');
+    micBtn.title = '停止';
+    micBtn.setAttribute('aria-label', 'マイクを停止');
     setStatus('listening', '聞いています');
 
     recognition.onresult = (e) => {
@@ -1234,6 +1236,8 @@ class LipSyncFace {
     isRecording = false;
     micBtn.classList.remove('recording');
     micBtn.setAttribute('aria-pressed', 'false');
+    micBtn.title = '話す';
+    micBtn.setAttribute('aria-label', 'マイクで話す');
     setStatus('', '待機中');
     if (recognition) { try { recognition.stop(); } catch (_) {} }
   }
