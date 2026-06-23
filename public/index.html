@@ -1179,7 +1179,7 @@ class LipSyncFace {
     setStatus('', '待機中');
     busy = false;
     textInput.disabled = false;
-    sendBtn.disabled = false;
+    updateSendBtnState();
   }
 
   /* ── Text input ── */
@@ -1191,6 +1191,10 @@ class LipSyncFace {
     sendUserMessage(text);
   }
 
+  function updateSendBtnState() {
+    sendBtn.disabled = textInput.value.trim() === '' || busy;
+  }
+
   sendBtn.addEventListener('click', submitTextInput);
   textInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing) {
@@ -1198,6 +1202,8 @@ class LipSyncFace {
       submitTextInput();
     }
   });
+  textInput.addEventListener('input', updateSendBtnState);
+  updateSendBtnState();
 
   /* ── Recording ── */
   function startRecording() {
