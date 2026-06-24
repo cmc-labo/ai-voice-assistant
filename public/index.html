@@ -74,13 +74,18 @@
     letter-spacing: 0.04em;
   }
 
-  .clear-btn {
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .clear-btn, .pdf-btn {
     display: flex;
     align-items: center;
     gap: 5px;
     font-family: 'Space Mono', monospace;
     font-size: 11px;
-    color: var(--text-dim);
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -91,10 +96,19 @@
     box-shadow: 0 1px 4px rgba(107,88,240,0.06);
   }
 
+  .clear-btn { color: var(--text-dim); }
+  .pdf-btn   { color: #2a8a5a; border-color: rgba(42,138,90,0.25); }
+
   .clear-btn:hover {
     color: var(--accent);
     border-color: rgba(107,88,240,0.4);
     box-shadow: 0 2px 8px rgba(107,88,240,0.12);
+  }
+
+  .pdf-btn:hover {
+    color: #1e6e46;
+    border-color: rgba(42,138,90,0.55);
+    box-shadow: 0 2px 8px rgba(42,138,90,0.15);
   }
 
   /* ── Avatar ── */
@@ -448,14 +462,26 @@
       <h1>AI Voice</h1>
       <p>声で話す、AIアシスタント</p>
     </div>
-    <button class="clear-btn" id="clearBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;">
-        <polyline points="3 6 5 6 21 6"/>
-        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-        <path d="M10 11v6M14 11v6"/>
-      </svg>
-      クリア
-    </button>
+    <div class="header-actions">
+      <button class="pdf-btn" id="pdfBtn" title="相談メモをPDFで出力">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        相談メモ
+      </button>
+      <button class="clear-btn" id="clearBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+        </svg>
+        クリア
+      </button>
+    </div>
   </div>
 
   <!-- Lip-sync face (Three.js) -->
@@ -1247,6 +1273,202 @@ class LipSyncFace {
     setStatus('', '待機中');
     if (recognition) { try { recognition.stop(); } catch (_) {} }
   }
+
+  /* ── PDF Memo Export ── */
+  const pdfBtn = document.getElementById('pdfBtn');
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+  }
+
+  function exportMemo() {
+    if (conversationHistory.length === 0) {
+      showError('相談内容がありません。まずAIと会話してください。');
+      return;
+    }
+
+    const now     = new Date();
+    const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    let qCount = 0, aCount = 0;
+    const timeline = conversationHistory.map((msg) => {
+      if (msg.role === 'user') {
+        qCount++;
+        return `<div class="qa-block q-block">
+          <div class="qa-label">Q${qCount}　あなたの質問</div>
+          <div class="qa-body">${escHtml(msg.content)}</div>
+        </div>`;
+      } else {
+        aCount++;
+        return `<div class="qa-block a-block">
+          <div class="qa-label">A${aCount}　AI の回答</div>
+          <div class="qa-body">${escHtml(msg.content)}</div>
+        </div>`;
+      }
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>AI相談メモ — ${dateStr}</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm 22mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', 'Yu Gothic', sans-serif;
+    font-size: 11pt;
+    color: #1a1a1a;
+    line-height: 1.75;
+    background: #fff;
+  }
+
+  /* ── Cover header ── */
+  .cover {
+    border-bottom: 3px solid #3b2fa0;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  .cover-title {
+    font-size: 20pt;
+    font-weight: 700;
+    color: #3b2fa0;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .cover-meta {
+    font-size: 9pt;
+    color: #555;
+    display: flex;
+    gap: 24px;
+  }
+  .cover-meta span { display: flex; align-items: center; gap: 4px; }
+
+  /* ── Disclaimer ── */
+  .disclaimer {
+    background: #fff8e6;
+    border: 1px solid #f0b429;
+    border-left: 4px solid #f0b429;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 9pt;
+    color: #7a5200;
+    margin-bottom: 22px;
+    line-height: 1.65;
+  }
+  .disclaimer strong { display: block; margin-bottom: 3px; font-size: 9.5pt; }
+
+  /* ── Section heading ── */
+  .section-heading {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #3b2fa0;
+    border-bottom: 1.5px solid #3b2fa0;
+    padding-bottom: 5px;
+    margin-bottom: 16px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Q&A blocks ── */
+  .qa-block {
+    margin-bottom: 16px;
+    page-break-inside: avoid;
+  }
+  .qa-label {
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 4px 4px 0 0;
+    display: inline-block;
+  }
+  .q-block .qa-label { background: #3b2fa0; color: #fff; }
+  .a-block .qa-label { background: #2a8a5a; color: #fff; }
+
+  .qa-body {
+    border: 1px solid #ddd;
+    border-radius: 0 4px 4px 4px;
+    padding: 10px 14px;
+    font-size: 10.5pt;
+    line-height: 1.8;
+    background: #fafafa;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .q-block .qa-body { border-top-color: #3b2fa0; border-left: 3px solid #3b2fa0; }
+  .a-block .qa-body { border-top-color: #2a8a5a; border-left: 3px solid #2a8a5a; }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 28px;
+    padding-top: 12px;
+    border-top: 1px solid #ccc;
+    font-size: 8.5pt;
+    color: #888;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .footer-note { line-height: 1.6; }
+  .footer-sign {
+    text-align: right;
+    line-height: 1.6;
+    color: #aaa;
+  }
+
+  @media print {
+    body { font-size: 10.5pt; }
+    .qa-block { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-title">AI 相談メモ</div>
+  <div class="cover-meta">
+    <span>&#128197; 相談日：${dateStr}</span>
+    <span>&#128337; 出力時刻：${timeStr}</span>
+    <span>&#128172; やり取り件数：Q&amp;A ${Math.min(qCount,aCount)} 往復</span>
+  </div>
+</div>
+
+<div class="disclaimer">
+  <strong>&#9888;&#65039; ご注意（弁護士への持参をお考えの方へ）</strong>
+  この資料はAIとの相談内容を記録したものです。法的効力はなく、AIの回答は法律の専門的判断を代替するものではありません。実際の法的手続き・判断は必ず資格を持つ弁護士にご相談ください。
+</div>
+
+<div class="section-heading">相談タイムライン</div>
+
+${timeline}
+
+<div class="footer">
+  <div class="footer-note">
+    本資料は AI Voice Chat アプリにより自動生成されました。<br>
+    弁護士との面談時に参考資料としてご活用ください。
+  </div>
+  <div class="footer-sign">
+    出力日時：${dateStr} ${timeStr}<br>
+    AI Voice Chat
+  </div>
+</div>
+
+<script>window.onload = function() { window.print(); };<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) {
+      showError('ポップアップがブロックされています。ブラウザの設定を確認してください。');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+  }
+
+  pdfBtn.addEventListener('click', exportMemo);
 
   /* ── Clear ── */
   clearBtn.addEventListener('click', () => {
